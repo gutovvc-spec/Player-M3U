@@ -126,13 +126,30 @@ async function requestPlaylist(url) {
 
   let response;
   try {
-    response = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+    response = await fetch("/api/proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(120_000)
+    });
   } catch (error) {
     console.error("Não foi possível carregar a playlist no navegador.", error);
-    throw new Error("Não foi possível acessar a playlist pelo navegador. Confira a internet e se o servidor IPTV permite acesso web (CORS).");
+    throw new Error("Não foi possível acessar o proxy IPTV da web. Confira se a API /api/proxy está publicada na Vercel e tente novamente.");
   }
-  if (!response.ok) throw new Error(`O servidor retornou o erro HTTP ${response.status}. Confira o link e o acesso à playlist.`);
+  if (!response.ok) {
+    const detail = (await response.text()).trim();
+    throw new Error(detail || `O proxy IPTV retornou o erro HTTP ${response.status}.`);
+  }
   return response.text();
+}
+
+function mediaPlaybackUrl(url) {
+  if (window.playerApp?.platform) return url;
+  try {
+    return new URL(url, window.location.href).href;
+  } catch {
+    return url;
+  }
 }
 
 async function loadPlaylist(url, name) {
@@ -605,7 +622,7 @@ function playItem(item) {
   updatePlayerFavorite();
   elements.playerModal.showModal();
 
-  const url = item.url;
+  const url = mediaPlaybackUrl(item.url);
   const isHls = /\.m3u8(?:$|[?#])/i.test(url) || /[?&](?:type|format)=m3u8(?:&|$)/i.test(url);
   const isMpegTs = /\.(?:ts|mpegts)(?:$|[?#])/i.test(url) || /[?&](?:type|format)=ts(?:&|$)/i.test(url);
   if (isHls && window.Hls?.isSupported()) {

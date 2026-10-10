@@ -160,3 +160,105 @@ test("cleans HTML formatting from subtitle cues without losing the caption", () 
   assert.equal(cleanText("&lt;font color=&quot;yellow&quot;&gt;Legenda&lt;/font&gt;"), "Legenda");
   assert.equal(cleanText("Primeira<br>Segunda"), "Primeira\nSegunda");
 });
+
+test("proxy rewrites playlist media, logos, and HLS references without exposing upstream URLs", () => {
+  const {
+    decodeTarget,
+    isPublicIPv4,
+    parseAllowedHosts,
+    rewritePlaylist,
+    validateTarget
+  } = require("../api/proxy-utils");
+  const secret = "ab".repeat(32);
+  const baseUrl = "http://iptv.example.com/lists/main.m3u";
+  const source = [
+    "#EXTM3U",
+    '#EXTINF:-1 tvg-logo="http://cdn.example.com/poster.png",Filme',
+    "http://cdn.example.com/video/movie.mp4?user=secret",
+    "#EXTINF:-1,Canal",
+    "../live/channel.m3u8"
+  ].join("\n");
+  const rewritten = rewritePlaylist(source, baseUrl, secret);
+  const parsed = parse(rewritten);
+  const lines = rewritten.split("\n");
+  const allowedHosts = parseAllowedHosts("iptv.example.com, cdn.example.com");
+  const proxiedMedia = new URL(parsed[0].url, "https://player.example.com");
+  const mediaToken = proxiedMedia.pathname.split("/").pop().replace(/\.mp4$/, "");
+
+  assert.match(lines[1], /tvg-id="proxy-[\da-f]{32}"/);
+  assert.match(lines[1], /tvg-logo="\/api\/proxy\/[^"]+\.png"/);
+  assert.equal(parsed[0].category, "movies");
+  assert.doesNotMatch(rewritten, /user=secret/);
+  assert.equal(decodeTarget(mediaToken, secret).href, "http://cdn.example.com/video/movie.mp4?user=secret");
+  assert.match(parsed[1].url, /\.m3u8$/);
+  assert.equal(
+    decodeTarget(new URL(parsed[1].url, "https://player.example.com").pathname.split("/").pop().replace(/\.m3u8$/, ""), secret).href,
+    "http://iptv.example.com/live/channel.m3u8"
+  );
+  assert.equal(validateTarget("http://cdn.example.com/video.mp4", allowedHosts).hostname, "cdn.example.com");
+  assert.throws(() => validateTarget("http://unlisted.example.com/list.m3u", allowedHosts), /não está autorizado/);
+  assert.throws(() => validateTarget("http://127.0.0.1/list.m3u", parseAllowedHosts("127.0.0.1")), /rede privada/);
+  assert.equal(isPublicIPv4("127.0.0.1"), false);
+  assert.equal(isPublicIPv4("8.8.8.8"), true);
+});
+
+test("proxy preserves stable item IDs and rewrites HLS resources", () => {
+  const { decodeTarget, rewritePlaylist } = require("../api/proxy-utils");
+  const secret = "cd".repeat(32);
+  const baseUrl = "https://iptv.example.com/live/master.m3u8";
+  const source = [
+    "#EXTM3U",
+    "#EXT-X-KEY:METHOD=AES-128,URI=\"keys/key.bin\"",
+    "#EXT-X-STREAM-INF:BANDWIDTH=1200000",
+    "media/episode.m3u8"
+  ].join("\n");
+  const output = rewritePlaylist(source, baseUrl, secret, "/api/proxy/", false);
+  const keyUri = output.match(/URI="([^"]+)"/)[1];
+  const playlistUrl = output.split("\n").at(-1);
+  const tokenFor = (value) => new URL(value, "https://player.example.com").pathname.split("/").pop().replace(/\.[a-z\d]{1,8}$/i, "");
+
+  assert.equal(decodeTarget(tokenFor(keyUri), secret).href, "https://iptv.example.com/live/keys/key.bin");
+  assert.equal(decodeTarget(tokenFor(playlistUrl), secret).href, "https://iptv.example.com/live/media/episode.m3u8");
+  const segments = rewritePlaylist(
+    "#EXTM3U\n#EXTINF:4.0,\nsegment.ts",
+    baseUrl,
+    secret,
+    "/api/proxy/",
+    false
+  );
+  assert.match(segments, /#EXTINF:4\.0,\n\/api\/proxy\//);
+  assert.doesNotMatch(segments, /tvg-id/);
+
+  const itemSource = "#EXTM3U\n#EXTINF:-1,Canal\nhttp://iptv.example.com/live/123.ts";
+  const first = rewritePlaylist(itemSource, baseUrl, secret).match(/tvg-id="([^"]+)"/)[1];
+  const second = rewritePlaylist(itemSource, baseUrl, secret).match(/tvg-id="([^"]+)"/)[1];
+  assert.equal(first, second);
+});
+
+test("streaming proxy rewrite handles split UTF-8 and M3U lines", async () => {
+  const { createPlaylistRewriteStream } = require("../api/proxy-utils");
+  const source = Buffer.from(
+    "#EXTM3U\n#EXTINF:-1,Canção ao vivo\nhttp://iptv.example.com/live/1.ts\n",
+    "utf8"
+  );
+  const splitAt = source.indexOf(Buffer.from("ç")) + 1;
+  const transformer = createPlaylistRewriteStream(
+    "http://iptv.example.com/list.m3u",
+    "ef".repeat(32),
+    "/api/proxy/",
+    true
+  );
+  const output = [];
+  transformer.on("data", (chunk) => output.push(chunk));
+  transformer.write(source.subarray(0, splitAt));
+  transformer.end(source.subarray(splitAt));
+  await new Promise((resolve, reject) => {
+    transformer.once("end", resolve);
+    transformer.once("error", reject);
+  });
+
+  const rewritten = Buffer.concat(output).toString("utf8");
+  assert.match(rewritten, /#EXTINF:-1 tvg-id="proxy-[\da-f]{32}",Canção ao vivo/);
+  assert.match(rewritten, /\/api\/proxy\/[^/]+\.ts/);
+  assert.doesNotMatch(rewritten, /�/);
+});

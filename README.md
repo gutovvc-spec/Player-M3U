@@ -14,11 +14,16 @@ Seu nome, o link e o nome da playlist, os favoritos e o progresso ficam armazena
 
 Se a imagem da playlist não carregar, confira a conexão com a internet, o endereço e se o serviço IPTV está disponível. Alguns serviços podem exigir que a playlist seja acessada com credenciais válidas ou bloquear conexões de aplicativos; nesse caso, consulte seu provedor.
 
-## Instalação como PWA no celular
+## PWA e proxy de IPTV na Vercel
 
 O projeto também pode ser publicado como PWA. Hospede os arquivos do projeto em um endereço **HTTPS** e abra-o no navegador do celular. No Android, use **Instalar app** ou a opção de instalação do navegador; no iPhone/iPad, abra no Safari, toque em **Compartilhar** e escolha **Adicionar à Tela de Início**. O service worker mantém os arquivos da interface disponíveis para abrir offline; playlists e transmissões continuam dependendo de conexão.
 
-No PWA, o navegador pode bloquear o carregamento da playlist por CORS. Além disso, páginas HTTPS não podem buscar links HTTP por causa da política de conteúdo misto. Como este player aceita somente links M3U começados por `http://`, uma playlist HTTP pode funcionar no executável Electron, mas não necessariamente no PWA hospedado em HTTPS. O acesso pelo PWA depende de uma origem e de um provedor compatíveis com as políticas do navegador.
+Na versão web, playlists e transmissões passam pela função `/api/proxy` da Vercel. Para ativá-la, configure estas variáveis nas configurações do projeto Vercel e faça um novo deploy:
+
+- `IPTV_PROXY_ALLOWED_HOSTS`: lista separada por vírgulas de nomes de host exatos autorizados, incluindo o host da playlist e os hosts/CDNs usados pelos streams e logos (por exemplo, `iptv.exemplo.com,cdn.exemplo.com`). Não use `*`.
+- `IPTV_PROXY_SECRET`: segredo aleatório de 32 bytes em hexadecimal. Gere um com `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` e guarde-o apenas nas variáveis de ambiente da Vercel.
+
+O proxy só permite hosts explicitamente autorizados, resolve-os para IPv4 público, valida também os redirecionamentos e cifra os endereços de mídia nos links do navegador. Ele não acessa redes privadas. Configure todos os domínios do provedor, inclusive os domínios diferentes usados em redirecionamentos. Proteja a API com limites de uso/firewall do projeto Vercel e monitore o tráfego: mesmo limitada aos hosts configurados, uma API pública pode consumir a banda e as cotas do seu projeto. A reprodução web também está sujeita aos limites de tempo e tráfego do plano Vercel; streams longos podem não ser adequados a uma função serverless. Se o proxy retornar domínio não autorizado, adicione o hostname indicado no endereço fornecido pelo seu serviço às variáveis e faça novo deploy.
 
 ## Categorias e reprodução
 
