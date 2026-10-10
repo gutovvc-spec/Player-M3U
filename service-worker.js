@@ -37,14 +37,13 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     fetch(request)
-      .then((response) => {
-        if (response.ok) {
-          const copy = response.clone();
-          event.waitUntil(
-            caches.open(CACHE_NAME)
-              .then((cache) => cache.put(request, copy))
-              .catch((error) => console.error("Não foi possível atualizar o cache do aplicativo.", error))
-          );
+      .then(async (response) => {
+        if (!response.ok) return response;
+        try {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(request, response.clone());
+        } catch (error) {
+          console.error("Não foi possível atualizar o cache do aplicativo.", error);
         }
         return response;
       })
