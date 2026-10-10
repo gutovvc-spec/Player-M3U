@@ -1,0 +1,58 @@
+{
+  "name": "player-m3u-iptv",
+  "version": "1.0.7",
+  "description": "Player de playlists M3U para filmes, séries e TV ao vivo.",
+  "main": "main.js",
+  "author": "Player M3U",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "build:exe": "electron-builder --win portable --x64"
+  },
+  "dependencies": {
+    "hls.js": "^1.6.13",
+    "mpegts.js": "^1.8.2"
+  },
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.playerm3u.iptv",
+    "productName": "Player M3U",
+    "asar": true,
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "styles.css",
+      "renderer.js",
+      "playlist.js",
+      "icon.png",
+      "icon.svg",
+      "manifest.webmanifest",
+      "service-worker.js",
+      "icons/**/*",
+      "vendor/**/*",
+      "package.json",
+      "node_modules/hls.js/**/*",
+      "node_modules/mpegts.js/**/*"
+    ],
+    "win": {
+      "icon": "icon.ico",
+      "artifactName": "Player M3U.exe",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "directories": {
+      "output": "."
+    }
+  }
+}

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="background" x1="54" y1="24" x2="452" y2="490" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#211737"/>
+      <stop offset=".55" stop-color="#121624"/>
+      <stop offset="1" stop-color="#0A1019"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="102" y1="139" x2="382" y2="379" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E2C7FF"/>
+      <stop offset=".48" stop-color="#B887FF"/>
+      <stop offset="1" stop-color="#7A5CFF"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="112" y1="333" x2="404" y2="333" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#77F0D2"/>
+      <stop offset=".5" stop-color="#B38BFF"/>
+      <stop offset="1" stop-color="#A478FF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="matrix(0 205 -212 0 292 190)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A45CFF" stop-opacity=".36"/>
+      <stop offset="1" stop-color="#A45CFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="125" y="106" width="270" height="278" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="13"/>
+    </filter>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="124" fill="url(#background)"/>
+  <rect x="16" y="16" width="480" height="480" rx="124" fill="url(#glow)"/>
+  <rect x="17" y="17" width="478" height="478" rx="123" stroke="#FFF" stroke-opacity=".11" stroke-width="2"/>
+  <path d="M400 119a18 18 0 1 1-36 0 18 18 0 0 1 36 0Z" fill="#83F1D7" fill-opacity=".95"/>
+  <path d="M154 151c0-14 15-23 27-16l174 101c12 7 12 24 0 31L181 368c-12 7-27-2-27-16V151Z" fill="#B686FF" fill-opacity=".55" filter="url(#shadow)"/>
+  <path d="M155 145c0-13 14-21 25-14l178 105c11 7 11 23 0 30L180 371c-11 7-25-1-25-14V145Z" fill="url(#accent)"/>
+  <path d="M211 211v78l65-39-65-39Z" fill="#171329" fill-opacity=".88"/>
+  <rect x="112" y="393" width="288" height="5" rx="2.5" fill="#FFF" fill-opacity=".12"/>
+  <rect x="112" y="391" width="191" height="8" rx="4" fill="url(#signal)"/>
+  <circle cx="307" cy="395" r="8" fill="#E7D5FF"/>
+  <path d="M112 415h73" stroke="#8C76B8" stroke-opacity=".48" stroke-width="5" stroke-linecap="round"/>
+  <path d="M201 415h34" stroke="#8C76B8" stroke-opacity=".3" stroke-width="5" stroke-linecap="round"/>
+  <path d="M385 415h15" stroke="#8C76B8" stroke-opacity=".3" stroke-width="5" stroke-linecap="round"/>
+</svg>

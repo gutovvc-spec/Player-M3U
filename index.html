@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#090b10">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" href="icon.png">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' https: http: data: blob:; img-src 'self' https: http: data: blob:; media-src 'self' https: http: blob:; style-src 'self'; script-src 'self'; connect-src 'self' https: http: blob:;"
+    >
+    <title>Player M3U</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#" aria-label="Player M3U início">
+          <span class="brand-mark"><span></span><span></span><span></span></span>
+          <span>stream<span class="brand-accent">box</span></span>
+        </a>
+
+        <div class="sidebar-label">MENU PRINCIPAL</div>
+        <label class="sidebar-search-label" for="global-search">PESQUISAR NA PLAYLIST</label>
+        <div class="sidebar-search-wrap">
+          <span aria-hidden="true">⌕</span>
+          <input id="global-search" type="search" placeholder="Buscar em tudo..." autocomplete="off">
+        </div>
+        <nav class="main-nav" aria-label="Navegação principal">
+          <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span>Início</button>
+          <button class="nav-item" data-view="live"><span class="nav-icon">◉</span>TV ao vivo</button>
+          <button class="nav-item" data-view="movies"><span class="nav-icon">▣</span>Filmes</button>
+          <button class="nav-item" data-view="series"><span class="nav-icon">▤</span>Séries</button>
+          <button class="nav-item" data-view="favorites"><span class="nav-icon">♡</span>Minha lista</button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="playlist-status">
+            <span class="status-dot"></span>
+            <span id="playlist-status-text">Nenhuma playlist</span>
+          </div>
+          <button class="settings-button" id="open-playlist"><span>＋</span> Adicionar playlist</button>
+          <button class="remove-playlist-button hidden" id="remove-playlist" type="button">Remover playlist e dados</button>
+          <p class="sidebar-footnote">Suas listas e favoritos ficam salvos neste dispositivo.</p>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <div class="breadcrumbs"><span>STREAMBOX</span><span class="crumb-separator">/</span><span id="current-section">Início</span></div>
+          <div class="topbar-actions">
+            <button class="install-button hidden" id="install-app" type="button">＋ Instalar app</button>
+            <button class="profile-button" id="profile-button" title="Perfil local">V</button>
+          </div>
+        </header>
+
+        <section class="content">
+          <section class="hero" id="hero">
+            <div class="hero-shade"></div>
+            <div class="hero-content">
+              <span class="eyebrow"><span class="live-dot"></span> SEU ENTRETENIMENTO, EM UM SÓ LUGAR</span>
+              <h1>Uma tela.<br><span>Mil possibilidades.</span></h1>
+              <p id="hero-greeting">Seus canais, filmes e séries favoritos estão a um play de distância.</p>
+              <div class="hero-actions">
+                <button class="primary-button" id="hero-play"><span>▶</span> Começar a assistir</button>
+                <button class="secondary-button" id="hero-add">＋ Adicionar playlist</button>
+              </div>
+            </div>
+            <div class="hero-pagination"><span class="page-current"></span><span></span><span></span><span></span></div>
+            <div class="hero-note"><span class="hero-note-line"></span> SUA PRÓXIMA HISTÓRIA COMEÇA AQUI</div>
+          </section>
+
+          <section class="playlist-banner hidden" id="playlist-banner">
+            <div><span class="banner-icon">▤</span><span><strong id="banner-title">Sua playlist</strong><small id="banner-subtitle">Pronta para explorar</small></span></div>
+            <div class="banner-actions">
+              <button class="text-button" id="change-playlist">Trocar playlist <span>→</span></button>
+              <button class="text-button remove-playlist-inline" id="remove-playlist-inline">Remover lista</button>
+            </div>
+          </section>
+
+          <section class="continue-section hidden" id="continue-section">
+            <div class="section-heading">
+              <div><span class="section-kicker">DE ONDE VOCÊ PAROU</span><h2>Continue assistindo</h2></div>
+              <span class="section-count" id="continue-count"></span>
+            </div>
+            <div class="media-grid continue-grid" id="continue-grid"></div>
+          </section>
+
+          <section class="browse-section">
+            <div class="section-heading">
+              <div><span class="section-kicker" id="browse-kicker">EXPLORE SEU CATÁLOGO</span><h2 id="browse-title">Seu conteúdo</h2></div>
+              <span class="section-count" id="item-count"></span>
+            </div>
+            <div class="catalog-layout">
+              <aside class="group-sidebar hidden" id="group-sidebar" aria-label="Grupos da playlist">
+                <div class="group-sidebar-heading">
+                  <span class="section-kicker">LISTAS E GRUPOS</span>
+                  <span id="group-count"></span>
+                </div>
+                <div class="group-filters" id="group-filters"></div>
+              </aside>
+              <div class="catalog-results">
+                <div class="group-search-wrap">
+                  <span aria-hidden="true">⌕</span>
+                  <input id="group-search" type="search" placeholder="Pesquisar neste grupo..." autocomplete="off">
+                  <button class="clear-search hidden" id="clear-group-search" type="button" aria-label="Limpar busca">×</button>
+                </div>
+                <div class="series-detail-toolbar hidden" id="series-detail-toolbar">
+                  <button class="text-button" id="back-to-series">← Todas as séries</button>
+                  <div class="category-filters" id="season-filters"></div>
+                </div>
+                <div class="media-grid" id="media-grid"></div>
+                <button class="secondary-button load-more-button hidden" id="load-more">Carregar mais</button>
+                <div class="empty-state" id="empty-state">
+                  <div class="empty-icon">▤</div>
+                  <h3>Seu catálogo começa aqui</h3>
+                  <p>Adicione uma playlist M3U para explorar canais, filmes e séries.</p>
+                  <button class="primary-button" id="empty-add">＋ Adicionar playlist</button>
+                </div>
+              </div>
+            </div>
+          </section>
+          <footer class="content-footer">STREAMBOX <span>•</span> SEU PLAYER DE MÍDIA</footer>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="modal" id="playlist-modal">
+      <form class="modal-card" id="playlist-form">
+        <button type="button" class="modal-close" id="close-modal" aria-label="Fechar">×</button>
+        <span class="modal-kicker">CONFIGURAÇÃO</span>
+        <h2>Adicionar playlist</h2>
+        <p>Use o link M3U fornecido pelo seu serviço de IPTV. O carregamento pode levar até 2 minutos, dependendo da velocidade da internet, do servidor e do tamanho da playlist. Listas muito grandes também podem levar mais tempo para organizar os itens.</p>
+        <label for="playlist-name">Nome da playlist</label>
+        <input id="playlist-name" type="text" placeholder="Ex.: Minha TV" maxlength="48">
+        <label for="playlist-url">Link M3U</label>
+        <input id="playlist-url" type="url" placeholder="http://exemplo.com/playlist.m3u" required>
+        <div class="modal-error" id="modal-error" role="alert"></div>
+        <button class="primary-button modal-submit" id="playlist-submit" type="submit"><span>＋</span> Carregar playlist</button>
+        <p class="modal-disclaimer">Use apenas playlists e serviços aos quais você tem direito de acesso.</p>
+      </form>
+    </dialog>
+
+    <dialog class="modal welcome-modal" id="welcome-modal">
+      <form class="modal-card" id="welcome-form">
+        <span class="modal-kicker">BEM-VINDO AO STREAMBOX</span>
+        <h2>Como podemos chamar você?</h2>
+        <p>Digite seu nome para personalizar a tela inicial. Ele fica salvo somente neste dispositivo.</p>
+        <label for="user-name">Seu nome</label>
+        <input id="user-name" type="text" placeholder="Ex.: Vini" maxlength="40" autocomplete="given-name" required>
+        <button class="primary-button modal-submit" type="submit">Continuar</button>
+      </form>
+    </dialog>
+
+    <dialog class="player-modal" id="player-modal">
+      <div class="player-card">
+        <div class="player-topline"><div><span class="live-dot"></span><span id="player-category">REPRODUZINDO</span></div><button class="modal-close player-close" id="close-player" aria-label="Fechar">×</button></div>
+        <div class="video-wrap">
+          <video id="video-player" controls playsinline></video>
+          <div class="video-error hidden" id="video-error"></div>
+        </div>
+        <div class="player-info"><div><h2 id="player-title"></h2><p id="player-group"></p></div><button class="favorite-button player-favorite" id="player-favorite">♡ <span>Favoritar</span></button></div>
+      </div>
+    </dialog>
+
+    <dialog class="modal" id="remove-playlist-modal">
+      <form class="modal-card" id="remove-playlist-form">
+        <button type="button" class="modal-close" id="close-remove-playlist" aria-label="Fechar">×</button>
+        <span class="modal-kicker">REMOVER CONTEÚDO</span>
+        <h2>Remover esta playlist?</h2>
+        <p id="remove-playlist-description">A playlist e seus dados locais serão removidos deste aparelho.</p>
+        <p class="remove-warning">Esta ação não pode ser desfeita. Você precisará do link para adicionar a playlist novamente.</p>
+        <div class="remove-actions">
+          <button class="secondary-button" id="cancel-remove-playlist" type="button">Cancelar</button>
+          <button class="danger-button" type="submit">Remover playlist</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="pwa-install-modal">
+      <form class="modal-card">
+        <button type="button" class="modal-close" id="close-pwa-install" aria-label="Fechar">×</button>
+        <span class="modal-kicker">PLAYER M3U NO CELULAR</span>
+        <h2>Instalar o aplicativo</h2>
+        <p id="pwa-install-instructions">Abra o menu do navegador e selecione “Adicionar à tela inicial” ou “Instalar aplicativo”.</p>
+        <button class="primary-button modal-submit" id="confirm-pwa-install" type="button">Entendi</button>
+      </form>
+    </dialog>
+
+    <script src="vendor/hls.min.js"></script>
+    <script src="vendor/mpegts.js"></script>
+    <script src="playlist.js"></script>
+    <script src="renderer.js"></script>
+  </body>
+</html>
