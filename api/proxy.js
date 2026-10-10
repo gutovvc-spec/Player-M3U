@@ -2,6 +2,7 @@ const dns = require("node:dns").promises;
 const http = require("node:http");
 const https = require("node:https");
 const net = require("node:net");
+const zlib = require("node:zlib");
 const {
   createPlaylistRewriteStream,
   decodeTarget,
@@ -74,7 +75,7 @@ function getRequestHeaders(request, target) {
   const headers = {
     "User-Agent": request.headers["user-agent"] || "Mozilla/5.0 PlayerM3U/1.0",
     Accept: request.headers.accept || "*/*",
-    "Accept-Encoding": "identity",
+    "Accept-Encoding": "gzip, deflate, br",
     Referer: `${target.origin}/`
   };
   for (const name of ["range", "if-range"]) {
@@ -139,6 +140,23 @@ function isPlaylistResponse(target, contentType) {
   return /\.m3u8?(?:$|[?#])/i.test(target.href) || /mpegurl/i.test(contentType || "");
 }
 
+function decodePlaylistStream(source, contentEncoding) {
+  const encodings = String(contentEncoding || "")
+    .split(",")
+    .map((encoding) => encoding.trim().toLowerCase())
+    .filter((encoding) => encoding && encoding !== "identity")
+    .reverse();
+
+  let stream = source;
+  for (const encoding of encodings) {
+    if (encoding === "gzip" || encoding === "x-gzip") stream = stream.pipe(zlib.createGunzip());
+    else if (encoding === "deflate") stream = stream.pipe(zlib.createInflate());
+    else if (encoding === "br") stream = stream.pipe(zlib.createBrotliDecompress());
+    else throw new Error(`O proxy não consegue descompactar a playlist (${encoding}).`);
+  }
+  return stream;
+}
+
 function handleUpstreamResponse(response, upstream, request, secret, expectPlaylist = false) {
   const source = upstream.response;
   const target = upstream.target;
@@ -149,11 +167,24 @@ function handleUpstreamResponse(response, upstream, request, secret, expectPlayl
     return;
   }
 
-  source.once("data", (firstChunk) => {
-    source.pause();
-    const contentType = source.headers["content-type"] || "";
+  const contentType = source.headers["content-type"] || "";
+  const rewriteExpected = expectPlaylist || isPlaylistResponse(target, contentType);
+  let body;
+  try {
+    body = rewriteExpected
+      ? decodePlaylistStream(source, source.headers["content-encoding"])
+      : source;
+  } catch (error) {
+    console.error("Não foi possível descompactar a playlist IPTV.", error);
+    source.destroy();
+    sendError(response, 502, error.message);
+    return;
+  }
+
+  body.once("data", (firstChunk) => {
+    body.pause();
     const hasPlaylistHeader = /^\uFEFF?\s*#EXTM3U\b/i.test(firstChunk.toString("utf8").slice(0, 512));
-    const rewrite = isPlaylistResponse(target, contentType) || hasPlaylistHeader;
+    const rewrite = rewriteExpected || hasPlaylistHeader;
     if (expectPlaylist && !rewrite) {
       source.destroy();
       sendError(response, 415, "O endereço informado não retornou uma playlist M3U.");
@@ -175,15 +206,15 @@ function handleUpstreamResponse(response, upstream, request, secret, expectPlayl
         response.destroy();
       });
       transformer.write(firstChunk);
-      source.pipe(transformer).pipe(response);
+      body.pipe(transformer).pipe(response);
       return;
     }
 
     response.writeHead(source.statusCode || 502, headers);
     response.write(firstChunk);
-    source.pipe(response);
+    body.pipe(response);
   });
-  source.on("end", () => {
+  body.on("end", () => {
     if (!response.headersSent) {
       if (expectPlaylist) {
         sendError(response, 415, "O endereço informado não retornou uma playlist M3U.");
@@ -192,6 +223,10 @@ function handleUpstreamResponse(response, upstream, request, secret, expectPlayl
         response.end();
       }
     }
+  });
+  body.on("error", (error) => {
+    console.error("Falha ao ler a playlist IPTV descompactada.", error);
+    response.destroy();
   });
   source.on("error", (error) => {
     console.error("Falha ao receber dados do servidor IPTV.", error);
@@ -255,3 +290,5 @@ async function handler(request, response) {
 }
 
 module.exports = handler;
+module.exports.decodePlaylistStream = decodePlaylistStream;
+module.exports.getRequestHeaders = getRequestHeaders;

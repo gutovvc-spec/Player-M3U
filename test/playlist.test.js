@@ -303,3 +303,28 @@ test("streaming proxy rewrite handles split UTF-8 and M3U lines", async () => {
   assert.match(rewritten, /\/api\/proxy\?token=[^\s]+&ext=\.ts/);
   assert.doesNotMatch(rewritten, /�/);
 });
+
+test("proxy requests compressed playlists and decompresses supported encodings", async () => {
+  const { brotliCompressSync, deflateSync, gzipSync } = require("node:zlib");
+  const { decodePlaylistStream, getRequestHeaders } = require("../api/proxy");
+  const { Readable } = require("node:stream");
+  const target = new URL("http://iptv.example.com/list.m3u");
+  const headers = getRequestHeaders({ headers: {} }, target);
+
+  assert.equal(headers["Accept-Encoding"], "gzip, deflate, br");
+
+  const sample = "#EXTM3U\n#EXTINF:-1,Canal\nhttp://iptv.example.com/live.ts\n";
+  const encodings = [
+    ["gzip", gzipSync(sample)],
+    ["deflate", deflateSync(sample)],
+    ["br", brotliCompressSync(sample)]
+  ];
+  for (const [encoding, compressed] of encodings) {
+    const stream = decodePlaylistStream(Readable.from([compressed]), encoding);
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    assert.equal(Buffer.concat(chunks).toString("utf8"), sample);
+  }
+
+  assert.throws(() => decodePlaylistStream(Readable.from([]), "unsupported"), /não consegue descompactar/);
+});
