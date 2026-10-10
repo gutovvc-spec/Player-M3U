@@ -157,7 +157,7 @@ function decodePlaylistStream(source, contentEncoding) {
   return stream;
 }
 
-function handleUpstreamResponse(response, upstream, request, secret, expectPlaylist = false) {
+function handleUpstreamResponse(response, upstream, request, secret, expectPlaylist = false, allowedHosts = new Set()) {
   const source = upstream.response;
   const target = upstream.target;
   if (request.method === "HEAD") {
@@ -200,7 +200,13 @@ function handleUpstreamResponse(response, upstream, request, secret, expectPlayl
       delete headers["accept-ranges"];
       headers["Content-Type"] = "application/vnd.apple.mpegurl; charset=utf-8";
       response.writeHead(source.statusCode || 200, headers);
-      const transformer = createPlaylistRewriteStream(target, secret, "/api/proxy", expectPlaylist);
+      const transformer = createPlaylistRewriteStream(
+        target,
+        secret,
+        "/api/proxy",
+        expectPlaylist,
+        expectPlaylist ? { allowedHosts } : null
+      );
       transformer.on("error", (error) => {
         console.error("Falha ao reescrever uma playlist IPTV.", error);
         response.destroy();
@@ -277,7 +283,7 @@ async function handler(request, response) {
     }
 
     const upstream = await requestUpstream(target, request, allowedHosts);
-    handleUpstreamResponse(response, upstream, request, secret, request.method === "POST");
+    handleUpstreamResponse(response, upstream, request, secret, request.method === "POST", allowedHosts);
   } catch (error) {
     console.error("Não foi possível encaminhar a solicitação IPTV.", error);
     const message = error.message || "Falha no proxy IPTV.";

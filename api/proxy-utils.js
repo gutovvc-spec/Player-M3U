@@ -126,6 +126,26 @@ function rewritePlaylistLine(line, baseUrl, secret, proxyPath) {
   return proxiedTarget(line.trim(), baseUrl, secret, proxyPath);
 }
 
+function addPlaylistHosts(line, baseUrl, hosts) {
+  const add = (reference) => {
+    try {
+      const target = new URL(reference, baseUrl);
+      if (target.protocol === "http:" || target.protocol === "https:") {
+        hosts.add(target.hostname.toLowerCase().replace(/\.$/, ""));
+      }
+    } catch {
+      return;
+    }
+  };
+  if (line.trimStart().startsWith("#")) {
+    const attributes = /\b(?:URI|tvg-logo)\s*=\s*(["'])(.*?)\1/gi;
+    let match;
+    while ((match = attributes.exec(line)) !== null) add(match[2]);
+  } else if (line.trim()) {
+    add(line.trim());
+  }
+}
+
 function rewritePlaylist(content, baseUrl, secret, proxyPath, addStableIds = true) {
   return rewritePlaylistLines(String(content).split(/\r?\n/), baseUrl, secret, proxyPath, addStableIds).join("\n");
 }
@@ -176,11 +196,14 @@ function rewritePlaylistLines(lines, baseUrl, secret, proxyPath, addStableIds) {
   return output;
 }
 
-function createPlaylistRewriteStream(baseUrl, secret, proxyPath, addStableIds = false) {
+function createPlaylistRewriteStream(baseUrl, secret, proxyPath, addStableIds = false, hostMetadata = null) {
   const decoder = new StringDecoder("utf8");
+  const playlistHosts = new Set();
+  if (hostMetadata) playlistHosts.add(new URL(baseUrl).hostname.toLowerCase().replace(/\.$/, ""));
   let pending = "";
   let pendingEntry = [];
   const processLine = (line, stream) => {
+    if (hostMetadata) addPlaylistHosts(line, baseUrl, playlistHosts);
     if (/^#EXTINF:/i.test(line)) {
       if (pendingEntry.length) {
         for (const entryLine of pendingEntry) stream.push(`${rewritePlaylistLine(entryLine, baseUrl, secret, proxyPath)}\n`);
@@ -219,6 +242,12 @@ function createPlaylistRewriteStream(baseUrl, secret, proxyPath, addStableIds = 
       if (pending) processLine(pending.replace(/\r$/, ""), this);
       if (pendingEntry.length) {
         for (const line of pendingEntry) this.push(rewritePlaylistLine(line, baseUrl, secret, proxyPath));
+      }
+      if (hostMetadata) {
+        const hosts = [...playlistHosts].sort();
+        const unauthorizedHosts = hosts.filter((host) => !hostMetadata.allowedHosts.has(host));
+        this.push(`#PLAYER-M3U-HOSTS:${hosts.join(",")}\n`);
+        this.push(`#PLAYER-M3U-BLOCKED:${unauthorizedHosts.join(",")}\n`);
       }
       callback();
     }

@@ -26,6 +26,7 @@ const state = {
   loadingPlaylist: false,
   loadingMessage: "",
   playlistLoadError: "",
+  diagnosedPlaylist: null,
   playing: null,
   hls: null,
   mpegts: null,
@@ -41,6 +42,10 @@ const elements = {
   playlistName: document.getElementById("playlist-name"),
   playlistUrl: document.getElementById("playlist-url"),
   playlistSubmit: document.getElementById("playlist-submit"),
+  diagnoseHosts: document.getElementById("diagnose-hosts"),
+  domainDiagnosis: document.getElementById("domain-diagnosis"),
+  domainDiagnosisSummary: document.getElementById("domain-diagnosis-summary"),
+  domainList: document.getElementById("domain-list"),
   removePlaylist: document.getElementById("remove-playlist"),
   removePlaylistInline: document.getElementById("remove-playlist-inline"),
   removePlaylistModal: document.getElementById("remove-playlist-modal"),
@@ -99,12 +104,33 @@ function showError(message) {
   elements.modalError.textContent = message;
 }
 
+async function diagnosePlaylistHosts(url) {
+  url = Playlist.validateUrl(url);
+  const content = await requestPlaylist(url);
+  const hosts = content.match(/^#PLAYER-M3U-HOSTS:(.*)$/m)?.[1]
+    .split(",")
+    .filter(Boolean) || [];
+  const unauthorizedHosts = content.match(/^#PLAYER-M3U-BLOCKED:(.*)$/m)?.[1]
+    .split(",")
+    .filter(Boolean) || [];
+  if (hosts.length === 0) {
+    throw new Error("Não foi possível identificar os domínios. Atualize a página e tente novamente.");
+  }
+  state.diagnosedPlaylist = { url, content };
+  return { hosts, unauthorizedHosts };
+}
+
 function activePlaylist() {
   return state.playlists.find((playlist) => playlist.id === state.activePlaylistId);
 }
 
 function openPlaylistModal() {
   elements.modalError.textContent = "";
+  const playlist = activePlaylist();
+  if (!elements.playlistUrl.value && playlist) {
+    elements.playlistName.value = playlist.name;
+    elements.playlistUrl.value = playlist.url;
+  }
   elements.playlistModal.showModal();
 }
 
@@ -160,7 +186,13 @@ async function loadPlaylist(url, name) {
   render();
   let content;
   try {
-    content = await requestPlaylist(url);
+    if (state.diagnosedPlaylist?.url === url) {
+      content = state.diagnosedPlaylist.content;
+      state.loadingMessage = "Organizando os itens...";
+    } else {
+      content = await requestPlaylist(url);
+    }
+    state.diagnosedPlaylist = null;
   } catch (error) {
     state.loadingPlaylist = false;
     state.loadingMessage = "";
@@ -790,6 +822,33 @@ elements.removePlaylistForm.addEventListener("submit", (event) => {
 document.getElementById("close-modal").addEventListener("click", () => elements.playlistModal.close());
 elements.playlistModal.addEventListener("click", (event) => {
   if (event.target === elements.playlistModal) elements.playlistModal.close();
+});
+if (window.playerApp?.platform) {
+  elements.diagnoseHosts.classList.add("hidden");
+}
+elements.diagnoseHosts.addEventListener("click", async () => {
+  elements.diagnoseHosts.disabled = true;
+  elements.diagnoseHosts.textContent = "Verificando domínios...";
+  elements.modalError.textContent = "";
+  elements.domainDiagnosis.classList.add("hidden");
+  try {
+    const result = await diagnosePlaylistHosts(elements.playlistUrl.value.trim());
+    elements.domainList.value = result.hosts.join(",");
+    elements.domainDiagnosisSummary.textContent = result.unauthorizedHosts.length
+      ? `Domínios que ainda precisam ser autorizados: ${result.unauthorizedHosts.join(", ")}.`
+      : "Todos os domínios encontrados já estão autorizados no proxy.";
+    elements.domainDiagnosis.classList.remove("hidden");
+  } catch (error) {
+    showError(error.message || "Não foi possível verificar os domínios da playlist.");
+  } finally {
+    elements.diagnoseHosts.disabled = false;
+    elements.diagnoseHosts.textContent = "Ver domínios necessários";
+  }
+});
+elements.domainList.addEventListener("click", () => elements.domainList.select());
+elements.playlistUrl.addEventListener("input", () => {
+  state.diagnosedPlaylist = null;
+  elements.domainDiagnosis.classList.add("hidden");
 });
 elements.playlistForm.addEventListener("submit", async (event) => {
   event.preventDefault();

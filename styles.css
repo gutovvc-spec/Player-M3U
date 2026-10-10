@@ -168,6 +168,11 @@ button { color: inherit; }
 .modal-card input::placeholder { color: #626775; }
 .modal-error { min-height: 17px; margin-top: 8px; color: #ff8d99; font-size: 10px; }
 .modal-submit { width: 100%; margin-top: 5px; }
+.diagnose-hosts-button { width: 100%; margin-top: 12px; }
+.domain-diagnosis { margin-top: 12px; }
+.domain-diagnosis p { margin: 0 0 8px; color: #b7c5bc; font-size: 10px; line-height: 1.5; }
+.domain-diagnosis label { display: block; margin: 8px 0 6px; color: #c1c4ce; font-size: 10px; font-weight: 600; }
+.domain-diagnosis textarea { width: 100%; resize: vertical; padding: 8px; border: 1px solid #292d39; border-radius: 5px; background: #0c0e14; color: #d9dce6; font: 10px/1.5 monospace; }
 .modal-card .modal-disclaimer { margin: 14px 0 0; color: #646a77; font-size: 9px; }
 .remove-warning { margin: 0 0 18px !important; color: #e99aa4 !important; font-size: 10px !important; }
 .remove-actions { display: flex; justify-content: flex-end; gap: 9px; }

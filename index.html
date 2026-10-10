@@ -139,6 +139,12 @@
         <input id="playlist-name" type="text" placeholder="Ex.: Minha TV" maxlength="48">
         <label for="playlist-url">Link M3U</label>
         <input id="playlist-url" type="url" placeholder="http://exemplo.com/playlist.m3u" required>
+        <button class="secondary-button diagnose-hosts-button" id="diagnose-hosts" type="button">Ver domínios necessários</button>
+        <div class="domain-diagnosis hidden" id="domain-diagnosis" aria-live="polite">
+          <p id="domain-diagnosis-summary"></p>
+          <label for="domain-list">Domínios da playlist (clique para selecionar e copiar)</label>
+          <textarea id="domain-list" rows="3" readonly></textarea>
+        </div>
         <div class="modal-error" id="modal-error" role="alert"></div>
         <button class="primary-button modal-submit" id="playlist-submit" type="submit"><span>＋</span> Carregar playlist</button>
         <p class="modal-disclaimer">Use apenas playlists e serviços aos quais você tem direito de acesso.</p>

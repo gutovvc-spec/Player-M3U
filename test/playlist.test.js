@@ -328,3 +328,29 @@ test("proxy requests compressed playlists and decompresses supported encodings",
 
   assert.throws(() => decodePlaylistStream(Readable.from([]), "unsupported"), /não consegue descompactar/);
 });
+
+test("playlist streaming includes unique diagnostic hostnames without paths or credentials", async () => {
+  const { createPlaylistRewriteStream } = require("../api/proxy-utils");
+  const { Readable } = require("node:stream");
+  const content = [
+    "#EXTM3U",
+    '#EXTINF:-1 tvg-logo="http://logos.example.com/poster.png" group-title="Filmes",Filme',
+    "http://streams.example.com/movie.mp4?username=secret",
+    '#EXT-X-KEY:METHOD=AES-128,URI="http://keys.example.com/key.bin"',
+    "http://streams.example.com/live/channel.m3u8"
+  ].join("\n");
+  const transformer = createPlaylistRewriteStream(
+    "http://iptv.example.com/list.m3u",
+    "12".repeat(32),
+    "/api/proxy",
+    true,
+    { allowedHosts: new Set(["iptv.example.com"]) }
+  );
+  const chunks = [];
+  for await (const chunk of Readable.from([Buffer.from(content)]).pipe(transformer)) chunks.push(chunk);
+  const rewritten = Buffer.concat(chunks).toString("utf8");
+
+  assert.match(rewritten, /^#PLAYER-M3U-HOSTS:iptv\.example\.com,keys\.example\.com,logos\.example\.com,streams\.example\.com$/m);
+  assert.match(rewritten, /^#PLAYER-M3U-BLOCKED:keys\.example\.com,logos\.example\.com,streams\.example\.com$/m);
+  assert.doesNotMatch(rewritten, /username=secret|movie\.mp4|key\.bin/);
+});
