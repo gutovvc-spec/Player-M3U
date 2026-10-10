@@ -41,7 +41,7 @@ function validateTarget(value, allowedHosts) {
 
   const hostname = target.hostname.toLowerCase().replace(/\.$/, "");
   if (!allowedHosts.has(hostname)) {
-    throw new Error("O domínio desta playlist não está autorizado no proxy da Vercel.");
+    throw new Error(`O domínio ${hostname} não está autorizado no proxy da Vercel.`);
   }
   if (
     hostname === "localhost"

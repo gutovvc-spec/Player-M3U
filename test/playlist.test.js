@@ -234,7 +234,10 @@ test("proxy rewrites playlist media, logos, and HLS references without exposing 
     "http://iptv.example.com/live/channel.m3u8"
   );
   assert.equal(validateTarget("http://cdn.example.com/video.mp4", allowedHosts).hostname, "cdn.example.com");
-  assert.throws(() => validateTarget("http://unlisted.example.com/list.m3u", allowedHosts), /não está autorizado/);
+  assert.throws(
+    () => validateTarget("http://unlisted.example.com/list.m3u", allowedHosts),
+    /unlisted\.example\.com não está autorizado/
+  );
   assert.throws(() => validateTarget("http://127.0.0.1/list.m3u", parseAllowedHosts("127.0.0.1")), /rede privada/);
   assert.equal(isPublicIPv4("127.0.0.1"), false);
   assert.equal(isPublicIPv4("8.8.8.8"), true);
