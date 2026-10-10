@@ -30,7 +30,9 @@ const state = {
   hls: null,
   mpegts: null,
   progressTimer: null,
-  installPrompt: null
+  installPrompt: null,
+  subtitleTrackListHandler: null,
+  subtitleTrackHandlers: new Map()
 };
 
 const elements = {
@@ -530,6 +532,7 @@ function savePlaybackProgress() {
 function clearPlayback() {
   clearInterval(state.progressTimer);
   savePlaybackProgress();
+  stopSubtitleCleaning();
   if (state.hls) {
     state.hls.destroy();
     state.hls = null;
@@ -544,6 +547,47 @@ function clearPlayback() {
   state.playing = null;
 }
 
+function sanitizeSubtitleTrack(track) {
+  if (track.kind !== "subtitles" && track.kind !== "captions") return;
+  const cleanCues = (cues) => {
+    if (!cues) return;
+    for (const cue of cues) {
+      const cleanedText = window.Subtitles.cleanText(cue.text);
+      if (cleanedText !== cue.text) cue.text = cleanedText;
+    }
+  };
+  const cueChangeHandler = () => cleanCues(track.activeCues);
+  if (!state.subtitleTrackHandlers.has(track)) {
+    track.addEventListener("cuechange", cueChangeHandler);
+    state.subtitleTrackHandlers.set(track, cueChangeHandler);
+  }
+  cleanCues(track.cues);
+  cleanCues(track.activeCues);
+}
+
+function startSubtitleCleaning() {
+  const tracks = elements.video.textTracks;
+  state.subtitleTrackListHandler = () => {
+    for (const track of tracks) sanitizeSubtitleTrack(track);
+  };
+  tracks.addEventListener("addtrack", state.subtitleTrackListHandler);
+  tracks.addEventListener("change", state.subtitleTrackListHandler);
+  state.subtitleTrackListHandler();
+}
+
+function stopSubtitleCleaning() {
+  const tracks = elements.video.textTracks;
+  if (state.subtitleTrackListHandler) {
+    tracks.removeEventListener("addtrack", state.subtitleTrackListHandler);
+    tracks.removeEventListener("change", state.subtitleTrackListHandler);
+    state.subtitleTrackListHandler = null;
+  }
+  for (const [track, handler] of state.subtitleTrackHandlers) {
+    track.removeEventListener("cuechange", handler);
+  }
+  state.subtitleTrackHandlers.clear();
+}
+
 function showVideoError(message) {
   elements.videoError.textContent = message;
   elements.videoError.classList.remove("hidden");
@@ -551,6 +595,7 @@ function showVideoError(message) {
 
 function playItem(item) {
   clearPlayback();
+  startSubtitleCleaning();
   state.playing = item;
   elements.videoError.classList.add("hidden");
   elements.videoError.textContent = "";

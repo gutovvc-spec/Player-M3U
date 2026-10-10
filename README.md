@@ -22,10 +22,10 @@ No PWA, o navegador pode bloquear o carregamento da playlist por CORS. Além dis
 
 ## Categorias e reprodução
 
-As categorias e grupos são identificados pelas informações da playlist (`group-title`), exibidos em uma coluna lateral para separar provedores como Netflix e HBO Max e grupos de canais como Globo e Record. Episódios com nomes como `S01E01`, `1x01` ou temporada/episódio são agrupados por série, com filtros por temporada. A reprodução usa HLS para links M3U8 e suporte MPEG-TS para transmissões IPTV ao vivo; o buffer não tenta acelerar até o sinal atual para evitar saltos na reprodução. Formatos, codecs, CORS e acesso continuam dependendo do servidor de origem.
+As categorias e grupos são identificados pelas informações da playlist (`group-title`), exibidos em uma coluna lateral para separar provedores como Netflix e HBO Max e grupos de canais como Globo e Record. Episódios com nomes como `S01E01`, `1x01` ou temporada/episódio são agrupados por série, com filtros por temporada. A reprodução usa HLS para links M3U8 e suporte MPEG-TS para transmissões IPTV ao vivo; o buffer não tenta acelerar até o sinal atual para evitar saltos na reprodução. Tags HTML de formatação em legendas são removidas para que não apareçam como texto. Formatos, codecs, CORS e acesso continuam dependendo do servidor de origem.
 
 Use somente playlists e serviços aos quais você tem direito de acesso.
 
-## Desenvolver e gerar o executável
+## Desenvolver e gerar o instalador do Windows
 
-Com Node.js instalado, execute `npm install` e `npm start` para abrir o aplicativo. Para gerar ou substituir a versão portátil para Windows x64 na raiz do projeto, feche o player e execute `npm run build:exe`. O executável gerado tem sempre o nome `Player M3U.exe`. Os testes do leitor M3U podem ser executados com `npm test`.
+Com Node.js instalado, execute `npm install` e `npm start` para abrir o aplicativo. Para gerar ou substituir o instalador para Windows x64 na raiz do projeto, feche o player e execute `npm run build:exe`. O arquivo `Player M3U.exe` abre o assistente de instalação, usa o ícone Streambox e cria atalhos no menu Iniciar e na área de trabalho. Para reinstalar, execute o mesmo instalador; o atalho da área de trabalho é recriado. A instalação desktop não altera os arquivos do PWA, que continua sendo hospedado separadamente em HTTPS. Os testes podem ser executados com `npm test`.

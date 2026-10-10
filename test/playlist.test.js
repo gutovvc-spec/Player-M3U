@@ -118,10 +118,12 @@ test("PWA manifest and app-shell resources are packaged", () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.webmanifest"), "utf8"));
   const serviceWorker = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
   const packageConfig = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  const installerConfig = packageConfig.build.nsis;
   const shellAssets = [
     "index.html",
     "styles.css",
     "playlist.js",
+    "subtitles.js",
     "renderer.js",
     "manifest.webmanifest",
     "icon.png",
@@ -135,6 +137,26 @@ test("PWA manifest and app-shell resources are packaged", () => {
   }
   assert.match(serviceWorker, /APP_SHELL_URLS\.has\(url\.href\)/);
   assert.match(packageConfig.build.files.join("\n"), /service-worker\.js/);
+  assert.match(packageConfig.build.files.join("\n"), /subtitles\.js/);
   assert.match(packageConfig.build.files.join("\n"), /icons\/\*\*/);
   assert.match(packageConfig.build.files.join("\n"), /vendor\/\*\*/);
+  assert.equal(packageConfig.scripts["build:exe"], "electron-builder --win nsis --x64");
+  assert.equal(packageConfig.build.win.icon, "icon.ico");
+  assert.equal(packageConfig.build.win.target[0].target, "nsis");
+  assert.equal(installerConfig.artifactName, "Player M3U.exe");
+  assert.equal(installerConfig.createDesktopShortcut, "always");
+  assert.equal(installerConfig.createStartMenuShortcut, true);
+  assert.equal(installerConfig.installerIcon, "icon.ico");
+  assert.equal(installerConfig.uninstallerIcon, "icon.ico");
+});
+
+test("cleans HTML formatting from subtitle cues without losing the caption", () => {
+  const { cleanText } = require("../subtitles");
+
+  assert.equal(
+    cleanText("<font color=#FFFF00>Conforme declarações oficiais,</font>"),
+    "Conforme declarações oficiais,"
+  );
+  assert.equal(cleanText("&lt;font color=&quot;yellow&quot;&gt;Legenda&lt;/font&gt;"), "Legenda");
+  assert.equal(cleanText("Primeira<br>Segunda"), "Primeira\nSegunda");
 });
