@@ -134,7 +134,7 @@
         <button type="button" class="modal-close" id="close-modal" aria-label="Fechar">×</button>
         <span class="modal-kicker">CONFIGURAÇÃO</span>
         <h2>Adicionar playlist</h2>
-        <p>Use o link M3U fornecido pelo seu serviço de IPTV. O carregamento pode levar até 2 minutos, dependendo da velocidade da internet, do servidor e do tamanho da playlist. Listas muito grandes também podem levar mais tempo para organizar os itens.</p>
+        <p>Use o link M3U fornecido pelo seu serviço de IPTV. O navegador guarda uma cópia por até 20 horas para abrir a lista mais rápido nas próximas visitas; a primeira carga ainda depende do tamanho da playlist e da velocidade do provedor.</p>
         <label for="playlist-name">Nome da playlist</label>
         <input id="playlist-name" type="text" placeholder="Ex.: Minha TV" maxlength="48">
         <label for="playlist-url">Link M3U</label>
@@ -145,6 +145,7 @@
           <label for="domain-list">Domínios da playlist (clique para selecionar e copiar)</label>
           <textarea id="domain-list" rows="3" readonly></textarea>
         </div>
+        <label class="cache-refresh-option"><input id="force-playlist-refresh" type="checkbox"> Baixar a playlist novamente do provedor</label>
         <div class="modal-error" id="modal-error" role="alert"></div>
         <button class="primary-button modal-submit" id="playlist-submit" type="submit"><span>＋</span> Carregar playlist</button>
         <p class="modal-disclaimer">Use apenas playlists e serviços aos quais você tem direito de acesso.</p>
@@ -201,6 +202,7 @@
     <script src="vendor/mpegts.js"></script>
     <script src="subtitles.js"></script>
     <script src="playlist.js"></script>
+    <script src="playlist-cache.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>

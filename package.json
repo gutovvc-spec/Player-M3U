@@ -30,6 +30,7 @@
       "renderer.js",
       "subtitles.js",
       "playlist.js",
+      "playlist-cache.js",
       "icon.png",
       "icon.svg",
       "manifest.webmanifest",

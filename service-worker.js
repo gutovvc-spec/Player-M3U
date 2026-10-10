@@ -1,9 +1,10 @@
-const CACHE_NAME = "player-m3u-shell-v2";
+const CACHE_NAME = "player-m3u-shell-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./playlist.js",
+  "./playlist-cache.js",
   "./subtitles.js",
   "./renderer.js",
   "./manifest.webmanifest",

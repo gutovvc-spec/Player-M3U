@@ -27,6 +27,8 @@ const state = {
   loadingMessage: "",
   playlistLoadError: "",
   diagnosedPlaylist: null,
+  cacheStatus: "",
+  cacheStatusUrl: "",
   playing: null,
   hls: null,
   mpegts: null,
@@ -42,6 +44,7 @@ const elements = {
   playlistName: document.getElementById("playlist-name"),
   playlistUrl: document.getElementById("playlist-url"),
   playlistSubmit: document.getElementById("playlist-submit"),
+  forcePlaylistRefresh: document.getElementById("force-playlist-refresh"),
   diagnoseHosts: document.getElementById("diagnose-hosts"),
   domainDiagnosis: document.getElementById("domain-diagnosis"),
   domainDiagnosisSummary: document.getElementById("domain-diagnosis-summary"),
@@ -106,7 +109,15 @@ function showError(message) {
 
 async function diagnosePlaylistHosts(url) {
   url = Playlist.validateUrl(url);
-  const content = await requestPlaylist(url);
+  let content = state.diagnosedPlaylist?.url === url ? state.diagnosedPlaylist.content : "";
+  if (!content && !window.playerApp?.platform) {
+    const cached = await getCachedPlaylist(url);
+    content = cached?.content || "";
+  }
+  if (!content) {
+    content = await requestPlaylist(url);
+    if (!window.playerApp?.platform) cachePlaylist(url, content);
+  }
   const hosts = content.match(/^#PLAYER-M3U-HOSTS:(.*)$/m)?.[1]
     .split(",")
     .filter(Boolean) || [];
@@ -118,6 +129,31 @@ async function diagnosePlaylistHosts(url) {
   }
   state.diagnosedPlaylist = { url, content };
   return { hosts, unauthorizedHosts };
+}
+
+async function getCachedPlaylist(url) {
+  if (window.playerApp?.platform) return null;
+  try {
+    return await PlaylistCache.get(url);
+  } catch (error) {
+    console.error("Não foi possível ler a cópia local da playlist.", error);
+    state.cacheStatus = "failed";
+    return null;
+  }
+}
+
+function cachePlaylist(url, content) {
+  if (window.playerApp?.platform) return;
+  state.cacheStatus = "saving";
+  state.cacheStatusUrl = url;
+  PlaylistCache.put(url, content).then(() => {
+    state.cacheStatus = "saved";
+    if (activePlaylist()?.url === url) render();
+  }).catch((error) => {
+    console.error("Não foi possível salvar a cópia local da playlist.", error);
+    state.cacheStatus = "failed";
+    if (activePlaylist()?.url === url) render();
+  });
 }
 
 function activePlaylist() {
@@ -178,7 +214,7 @@ function mediaPlaybackUrl(url) {
   }
 }
 
-async function loadPlaylist(url, name) {
+async function loadPlaylist(url, name, forceRefresh = false) {
   url = Playlist.validateUrl(url);
   state.playlistLoadError = "";
   state.loadingPlaylist = true;
@@ -186,11 +222,20 @@ async function loadPlaylist(url, name) {
   render();
   let content;
   try {
-    if (state.diagnosedPlaylist?.url === url) {
+    if (!forceRefresh && state.diagnosedPlaylist?.url === url) {
       content = state.diagnosedPlaylist.content;
       state.loadingMessage = "Organizando os itens...";
     } else {
-      content = await requestPlaylist(url);
+      const cached = forceRefresh ? null : await getCachedPlaylist(url);
+      if (cached) {
+        content = cached.content;
+        state.cacheStatus = "saved";
+        state.cacheStatusUrl = url;
+        state.loadingMessage = "Abrindo cópia local...";
+      } else {
+        content = await requestPlaylist(url);
+        cachePlaylist(url, content);
+      }
     }
     state.diagnosedPlaylist = null;
   } catch (error) {
@@ -228,6 +273,8 @@ async function loadPlaylist(url, name) {
     state.playlists.push(playlist);
   }
   savePlaylists();
+  if (window.playerApp?.platform) state.cacheStatus = "";
+  if (window.playerApp?.platform) state.cacheStatusUrl = "";
   state.loadingPlaylist = false;
   state.loadingMessage = "";
   setActivePlaylist(playlist);
@@ -346,6 +393,8 @@ async function activateSavedPlaylist(playlist) {
   state.playlistLoadError = "";
   state.loadingPlaylist = false;
   state.loadingMessage = "";
+  state.cacheStatus = "";
+  state.cacheStatusUrl = "";
 
   if (!playlist) {
     render();
@@ -361,7 +410,11 @@ async function activateSavedPlaylist(playlist) {
   state.loadingMessage = "conectando...";
   render();
   try {
-    const content = await requestPlaylist(playlist.url);
+    const cached = await getCachedPlaylist(playlist.url);
+    const content = cached?.content || await requestPlaylist(playlist.url);
+    state.cacheStatus = cached ? "saved" : "";
+    state.cacheStatusUrl = cached ? playlist.url : "";
+    if (!cached) cachePlaylist(playlist.url, content);
     const channels = await Playlist.parseAsync(content);
     if (channels.length === 0) throw new Error("A playlist salva não contém itens válidos.");
     playlist.channels = channels;
@@ -377,9 +430,19 @@ async function activateSavedPlaylist(playlist) {
   }
 }
 
-function removeActivePlaylist() {
+async function removeActivePlaylist() {
   const playlist = activePlaylist();
   if (!playlist || state.loadingPlaylist) return;
+  if (!window.playerApp?.platform) {
+    try {
+      await PlaylistCache.remove(playlist.url);
+    } catch (error) {
+      console.error("Não foi possível remover a cópia local da playlist.", error);
+      elements.removePlaylistDescription.textContent =
+        "Não foi possível apagar a cópia local da playlist. Verifique o armazenamento do navegador e tente novamente.";
+      return;
+    }
+  }
 
   const removedIds = new Set(state.channels.map((item) => item.id));
   state.playlists = state.playlists.filter((item) => item.id !== playlist.id);
@@ -413,7 +476,14 @@ function render() {
   elements.removePlaylist.disabled = state.loadingPlaylist;
   elements.removePlaylistInline.classList.toggle("hidden", !playlist);
   elements.bannerTitle.textContent = playlist?.name || "Sua playlist";
-  elements.bannerSubtitle.textContent = playlist ? `${state.channels.length} itens disponíveis` : "Pronta para explorar";
+  const cacheStatusLabel = state.cacheStatusUrl === playlist?.url ? ({
+    saved: " • cópia salva neste aparelho",
+    saving: " • salvando cópia local...",
+    failed: " • não foi possível salvar a cópia local"
+  }[state.cacheStatus] || "") : "";
+  elements.bannerSubtitle.textContent = playlist
+    ? `${state.channels.length} itens disponíveis${cacheStatusLabel}`
+    : "Pronta para explorar";
 
   const savedProgress = state.channels
     .filter((item) => state.progress[item.id] && state.progress[item.id].time > 10)
@@ -815,9 +885,9 @@ document.getElementById("cancel-remove-playlist").addEventListener("click", () =
 elements.removePlaylistModal.addEventListener("click", (event) => {
   if (event.target === elements.removePlaylistModal) elements.removePlaylistModal.close();
 });
-elements.removePlaylistForm.addEventListener("submit", (event) => {
+elements.removePlaylistForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  removeActivePlaylist();
+  await removeActivePlaylist();
 });
 document.getElementById("close-modal").addEventListener("click", () => elements.playlistModal.close());
 elements.playlistModal.addEventListener("click", (event) => {
@@ -857,9 +927,14 @@ elements.playlistForm.addEventListener("submit", async (event) => {
   showError("");
 
   try {
-    await loadPlaylist(elements.playlistUrl.value.trim(), elements.playlistName.value);
+    await loadPlaylist(
+      elements.playlistUrl.value.trim(),
+      elements.playlistName.value,
+      elements.forcePlaylistRefresh.checked
+    );
     elements.playlistModal.close();
     elements.playlistForm.reset();
+    elements.forcePlaylistRefresh.checked = false;
   } catch (error) {
     state.loadingPlaylist = false;
     state.loadingMessage = "";

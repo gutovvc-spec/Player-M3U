@@ -158,6 +158,7 @@ test("PWA manifest and app-shell resources are packaged", () => {
     "index.html",
     "styles.css",
     "playlist.js",
+    "playlist-cache.js",
     "service-worker.js",
     "subtitles.js",
     "renderer.js",
@@ -172,9 +173,10 @@ test("PWA manifest and app-shell resources are packaged", () => {
     assert.ok(fs.existsSync(path.join(root, asset)), `Missing PWA asset: ${asset}`);
   }
   assert.match(serviceWorker, /APP_SHELL_URLS\.has\(url\.href\)/);
-  assert.match(serviceWorker, /player-m3u-shell-v2/);
+  assert.match(serviceWorker, /player-m3u-shell-v3/);
   assert.match(packageConfig.build.files.join("\n"), /service-worker\.js/);
   assert.match(packageConfig.build.files.join("\n"), /subtitles\.js/);
+  assert.match(packageConfig.build.files.join("\n"), /playlist-cache\.js/);
   assert.match(packageConfig.build.files.join("\n"), /icons\/\*\*/);
   assert.match(packageConfig.build.files.join("\n"), /vendor\/\*\*/);
   assert.equal(packageConfig.scripts["build:exe"], "electron-builder --win nsis --x64");
@@ -186,6 +188,16 @@ test("PWA manifest and app-shell resources are packaged", () => {
   assert.equal(installerConfig.installerIcon, "icon.ico");
   assert.equal(installerConfig.uninstallerIcon, "icon.ico");
   assert.equal(packageConfig.version, "1.0.9");
+});
+
+test("local playlist cache expires before proxy media tokens", () => {
+  const { CACHE_LIFETIME_MS, isFresh } = require("../playlist-cache");
+  const now = Date.now();
+
+  assert.equal(CACHE_LIFETIME_MS, 20 * 60 * 60 * 1000);
+  assert.equal(isFresh({ content: "#EXTM3U", savedAt: now - CACHE_LIFETIME_MS + 1 }, now), true);
+  assert.equal(isFresh({ content: "#EXTM3U", savedAt: now - CACHE_LIFETIME_MS }, now), false);
+  assert.equal(isFresh({ content: "#EXTM3U", savedAt: now + 1 }, now), false);
 });
 
 test("cleans HTML formatting from subtitle cues without losing the caption", () => {

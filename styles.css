@@ -173,6 +173,8 @@ button { color: inherit; }
 .domain-diagnosis p { margin: 0 0 8px; color: #b7c5bc; font-size: 10px; line-height: 1.5; }
 .domain-diagnosis label { display: block; margin: 8px 0 6px; color: #c1c4ce; font-size: 10px; font-weight: 600; }
 .domain-diagnosis textarea { width: 100%; resize: vertical; padding: 8px; border: 1px solid #292d39; border-radius: 5px; background: #0c0e14; color: #d9dce6; font: 10px/1.5 monospace; }
+.modal-card .cache-refresh-option { display: flex; align-items: center; gap: 7px; margin-top: 12px; color: #989dac; font-size: 10px; font-weight: 400; }
+.cache-refresh-option input { width: 13px; height: 13px; margin: 0; accent-color: #9761fa; }
 .modal-card .modal-disclaimer { margin: 14px 0 0; color: #646a77; font-size: 9px; }
 .remove-warning { margin: 0 0 18px !important; color: #e99aa4 !important; font-size: 10px !important; }
 .remove-actions { display: flex; justify-content: flex-end; gap: 9px; }
