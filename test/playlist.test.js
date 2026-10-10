@@ -37,6 +37,24 @@ test("handles a BOM, CRLF lines, and missing metadata", () => {
   assert.equal(channels[0].category, "live");
 });
 
+test("decodes UTF-8 and Windows-1252 playlist characters", () => {
+  const { decodeText, normalizeText } = require("../playlist");
+  const source = '#EXTM3U\n#EXTINF:-1 group-title="Ação & Séries",Canção São João\nhttp://example.com/tv';
+
+  assert.equal(decodeText(Buffer.from(source, "utf8"), "text/plain; charset=utf-8"), source);
+
+  const legacy = Buffer.from(
+    '#EXTM3U\n#EXTINF:-1 group-title="Ação & Séries",Canção São João\nhttp://example.com/tv',
+    "latin1"
+  );
+  const decoded = decodeText(legacy, "audio/x-mpegurl; charset=ISO-8859-1");
+  assert.match(decoded, /Ação & Séries/);
+  assert.match(decoded, /Canção São João/);
+  assert.equal(parse(decoded)[0].name, "Canção São João");
+  assert.equal(parse(decoded)[0].group, "Ação & Séries");
+  assert.equal(normalizeText("Canção, Ação e Séries"), "cancao, acao e series");
+});
+
 test("ignores comments and invalid entries without an EXTINF header", () => {
   assert.deepEqual(parse("#EXTM3U\n# comentário\nhttps://example.com/ignored\n#EXTINF:-1,Canal\n#EXTVLCOPT:network-caching=1000\nhttps://example.com/tv"), [
     {
@@ -173,7 +191,7 @@ test("PWA manifest and app-shell resources are packaged", () => {
     assert.ok(fs.existsSync(path.join(root, asset)), `Missing PWA asset: ${asset}`);
   }
   assert.match(serviceWorker, /APP_SHELL_URLS\.has\(url\.href\)/);
-  assert.match(serviceWorker, /player-m3u-shell-v3/);
+  assert.match(serviceWorker, /player-m3u-shell-v4/);
   assert.match(packageConfig.build.files.join("\n"), /service-worker\.js/);
   assert.match(packageConfig.build.files.join("\n"), /subtitles\.js/);
   assert.match(packageConfig.build.files.join("\n"), /playlist-cache\.js/);
@@ -190,14 +208,15 @@ test("PWA manifest and app-shell resources are packaged", () => {
   assert.equal(packageConfig.version, "1.0.9");
 });
 
-test("local playlist cache expires before proxy media tokens", () => {
-  const { CACHE_LIFETIME_MS, isFresh } = require("../playlist-cache");
+test("local playlist cache invalidates old data and expires before proxy media tokens", () => {
+  const { CACHE_LIFETIME_MS, CACHE_VERSION, isFresh } = require("../playlist-cache");
   const now = Date.now();
 
   assert.equal(CACHE_LIFETIME_MS, 20 * 60 * 60 * 1000);
-  assert.equal(isFresh({ content: "#EXTM3U", savedAt: now - CACHE_LIFETIME_MS + 1 }, now), true);
-  assert.equal(isFresh({ content: "#EXTM3U", savedAt: now - CACHE_LIFETIME_MS }, now), false);
-  assert.equal(isFresh({ content: "#EXTM3U", savedAt: now + 1 }, now), false);
+  assert.equal(isFresh({ content: "#EXTM3U", savedAt: now - CACHE_LIFETIME_MS + 1, version: CACHE_VERSION }, now), true);
+  assert.equal(isFresh({ content: "#EXTM3U", savedAt: now - CACHE_LIFETIME_MS, version: CACHE_VERSION }, now), false);
+  assert.equal(isFresh({ content: "#EXTM3U", savedAt: now + 1, version: CACHE_VERSION }, now), false);
+  assert.equal(isFresh({ content: "#EXTM3U", savedAt: now, version: CACHE_VERSION - 1 }, now), false);
 });
 
 test("cleans HTML formatting from subtitle cues without losing the caption", () => {
@@ -319,6 +338,7 @@ test("streaming proxy rewrite handles split UTF-8 and M3U lines", async () => {
 test("proxy requests compressed playlists and decompresses supported encodings", async () => {
   const { brotliCompressSync, deflateSync, gzipSync } = require("node:zlib");
   const { decodePlaylistStream, getRequestHeaders } = require("../api/proxy");
+  const { createPlaylistRewriteStream, playlistEncoding } = require("../api/proxy-utils");
   const { Readable } = require("node:stream");
   const target = new URL("http://iptv.example.com/list.m3u");
   const headers = getRequestHeaders({ headers: {} }, target);
@@ -339,6 +359,25 @@ test("proxy requests compressed playlists and decompresses supported encodings",
   }
 
   assert.throws(() => decodePlaylistStream(Readable.from([]), "unsupported"), /não consegue descompactar/);
+  assert.equal(playlistEncoding("audio/x-mpegurl; charset=ISO-8859-1"), "windows-1252");
+
+  const legacy = Buffer.from(
+    '#EXTM3U\n#EXTINF:-1 group-title="Ação",Canção São João\nhttp://iptv.example.com/live.ts\n',
+    "latin1"
+  );
+  const transformer = createPlaylistRewriteStream(
+    "http://iptv.example.com/list.m3u",
+    "34".repeat(32),
+    "/api/proxy",
+    false,
+    null,
+    "audio/x-mpegurl; charset=ISO-8859-1"
+  );
+  const decodedChunks = [];
+  for await (const chunk of Readable.from([legacy]).pipe(transformer)) decodedChunks.push(chunk);
+  const rewritten = Buffer.concat(decodedChunks).toString("utf8");
+  assert.match(rewritten, /Canção São João/);
+  assert.match(rewritten, /group-title="Ação"/);
 });
 
 test("playlist streaming includes unique diagnostic hostnames without paths or credentials", async () => {

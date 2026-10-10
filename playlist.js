@@ -106,6 +106,24 @@
     return parser.channels;
   }
 
+  function decodeText(value, contentType = "") {
+    if (typeof value === "string") return value.replace(/^\uFEFF/, "");
+    const charsetMatch = String(contentType).match(/charset\s*=\s*["']?([^;"'\s]+)/i);
+    let encoding = (charsetMatch?.[1] || "utf-8").toLowerCase();
+    if (["latin1", "latin-1", "iso-8859-1", "iso8859-1", "cp1252", "x-cp1252"].includes(encoding)) {
+      encoding = "windows-1252";
+    }
+    try {
+      return new TextDecoder(encoding).decode(value).replace(/^\uFEFF/, "");
+    } catch (error) {
+      throw new Error(`A codificação "${encoding}" da playlist não é suportada neste dispositivo.`, { cause: error });
+    }
+  }
+
+  function normalizeText(value) {
+    return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  }
+
   async function parseAsync(text, onProgress) {
     const content = String(text).replace(/^\uFEFF/, "");
     const parser = createParser();
@@ -160,5 +178,5 @@
     return "unknown";
   }
 
-  return { parse, parseAsync, streamFormat, validateUrl };
+  return { decodeText, normalizeText, parse, parseAsync, streamFormat, validateUrl };
 });

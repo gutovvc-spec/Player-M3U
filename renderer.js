@@ -202,7 +202,8 @@ async function requestPlaylist(url) {
     const detail = (await response.text()).trim();
     throw new Error(detail || `O proxy IPTV retornou o erro HTTP ${response.status}.`);
   }
-  return response.text();
+  const contentType = response.headers.get("content-type") || "";
+  return Playlist.decodeText(await response.arrayBuffer(), contentType);
 }
 
 function mediaPlaybackUrl(url) {
@@ -295,7 +296,7 @@ function categoryLabel(category) {
 }
 
 function normalizeKey(value) {
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return Playlist.normalizeText(value);
 }
 
 function groupLabel(group) {
@@ -505,7 +506,8 @@ function render() {
   let sourceItems = state.channels;
   if (state.globalSearch) {
     sourceItems = sourceItems.filter((item) =>
-      `${item.name} ${item.seriesName || ""} ${item.episodeName || ""} ${item.group}`.toLowerCase().includes(state.globalSearch)
+      Playlist.normalizeText(`${item.name} ${item.seriesName || ""} ${item.episodeName || ""} ${item.group}`)
+        .includes(Playlist.normalizeText(state.globalSearch))
     );
   } else {
     if (state.view === "favorites") sourceItems = sourceItems.filter((item) => state.favorites.has(item.id));
@@ -514,7 +516,8 @@ function render() {
   if (state.group !== "all") sourceItems = sourceItems.filter((item) => normalizeKey(groupLabel(item.group)) === state.group);
   if (state.groupSearch) {
     sourceItems = sourceItems.filter((item) =>
-      `${item.name} ${item.seriesName || ""} ${item.episodeName || ""} ${item.group}`.toLowerCase().includes(state.groupSearch)
+      Playlist.normalizeText(`${item.name} ${item.seriesName || ""} ${item.episodeName || ""} ${item.group}`)
+        .includes(Playlist.normalizeText(state.groupSearch))
     );
   }
 
@@ -948,7 +951,7 @@ elements.playlistForm.addEventListener("submit", async (event) => {
 });
 
 elements.globalSearch.addEventListener("input", (event) => {
-  state.globalSearch = event.target.value.trim().toLowerCase();
+  state.globalSearch = Playlist.normalizeText(event.target.value);
   state.groupSearch = "";
   elements.groupSearch.value = "";
   state.selectedSeries = "";
@@ -958,7 +961,7 @@ elements.globalSearch.addEventListener("input", (event) => {
   render();
 });
 elements.groupSearch.addEventListener("input", (event) => {
-  state.groupSearch = event.target.value.trim().toLowerCase();
+  state.groupSearch = Playlist.normalizeText(event.target.value);
   state.selectedSeries = "";
   state.selectedSeason = "all";
   state.visibleLimit = PAGE_SIZE;

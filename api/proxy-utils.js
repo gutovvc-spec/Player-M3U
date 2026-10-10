@@ -1,7 +1,6 @@
 const crypto = require("node:crypto");
 const net = require("node:net");
 const { Transform } = require("node:stream");
-const { StringDecoder } = require("node:string_decoder");
 
 const TOKEN_LIFETIME_SECONDS = 24 * 60 * 60;
 
@@ -146,6 +145,15 @@ function addPlaylistHosts(line, baseUrl, hosts) {
   }
 }
 
+function playlistEncoding(contentType = "") {
+  const match = String(contentType).match(/charset\s*=\s*["']?([^;"'\s]+)/i);
+  const encoding = (match?.[1] || "utf-8").toLowerCase();
+  if (["latin1", "latin-1", "iso-8859-1", "iso8859-1", "cp1252", "x-cp1252"].includes(encoding)) {
+    return "windows-1252";
+  }
+  return encoding;
+}
+
 function rewritePlaylist(content, baseUrl, secret, proxyPath, addStableIds = true) {
   return rewritePlaylistLines(String(content).split(/\r?\n/), baseUrl, secret, proxyPath, addStableIds).join("\n");
 }
@@ -196,8 +204,15 @@ function rewritePlaylistLines(lines, baseUrl, secret, proxyPath, addStableIds) {
   return output;
 }
 
-function createPlaylistRewriteStream(baseUrl, secret, proxyPath, addStableIds = false, hostMetadata = null) {
-  const decoder = new StringDecoder("utf8");
+function createPlaylistRewriteStream(
+  baseUrl,
+  secret,
+  proxyPath,
+  addStableIds = false,
+  hostMetadata = null,
+  contentType = ""
+) {
+  const decoder = new TextDecoder(playlistEncoding(contentType));
   const playlistHosts = new Set();
   if (hostMetadata) playlistHosts.add(new URL(baseUrl).hostname.toLowerCase().replace(/\.$/, ""));
   let pending = "";
@@ -227,7 +242,7 @@ function createPlaylistRewriteStream(baseUrl, secret, proxyPath, addStableIds = 
   };
   return new Transform({
     transform(chunk, _encoding, callback) {
-      pending += decoder.write(chunk);
+      pending += decoder.decode(chunk, { stream: true });
       const lines = pending.split("\n");
       pending = lines.pop();
       for (const line of lines) processLine(line.replace(/\r$/, ""), this);
@@ -238,7 +253,7 @@ function createPlaylistRewriteStream(baseUrl, secret, proxyPath, addStableIds = 
       callback();
     },
     flush(callback) {
-      pending += decoder.end();
+      pending += decoder.decode();
       if (pending) processLine(pending.replace(/\r$/, ""), this);
       if (pendingEntry.length) {
         for (const line of pendingEntry) this.push(rewritePlaylistLine(line, baseUrl, secret, proxyPath));
@@ -260,6 +275,7 @@ module.exports = {
   encodeTarget,
   isPublicIPv4,
   parseAllowedHosts,
+  playlistEncoding,
   proxiedTarget,
   rewritePlaylist,
   rewritePlaylistLines,

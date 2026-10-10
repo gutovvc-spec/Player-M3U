@@ -205,7 +205,8 @@ function handleUpstreamResponse(response, upstream, request, secret, expectPlayl
         secret,
         "/api/proxy",
         expectPlaylist,
-        expectPlaylist ? { allowedHosts } : null
+        expectPlaylist ? { allowedHosts } : null,
+        contentType
       );
       transformer.on("error", (error) => {
         console.error("Falha ao reescrever uma playlist IPTV.", error);

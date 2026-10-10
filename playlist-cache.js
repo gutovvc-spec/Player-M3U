@@ -6,12 +6,14 @@
   const DATABASE_NAME = "player-m3u-playlists";
   const STORE_NAME = "playlists";
   const DATABASE_VERSION = 1;
+  const CACHE_VERSION = 2;
   const CACHE_LIFETIME_MS = 20 * 60 * 60 * 1000;
   let databasePromise;
 
   function isFresh(record, now = Date.now()) {
     return Boolean(
       record
+      && record.version === CACHE_VERSION
       && typeof record.content === "string"
       && Number.isFinite(record.savedAt)
       && record.savedAt <= now
@@ -68,7 +70,7 @@
     const database = await openDatabase();
     return new Promise((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, "readwrite");
-      transaction.objectStore(STORE_NAME).put({ url, content, savedAt: Date.now() });
+      transaction.objectStore(STORE_NAME).put({ url, content, savedAt: Date.now(), version: CACHE_VERSION });
       transaction.oncomplete = resolve;
       transaction.onerror = () => reject(transaction.error || new Error("Não foi possível salvar o cache local da playlist."));
       transaction.onabort = () => reject(transaction.error || new Error("O armazenamento do cache local da playlist foi cancelado."));
@@ -86,5 +88,5 @@
     });
   }
 
-  return { CACHE_LIFETIME_MS, get, isFresh, put, remove };
+  return { CACHE_LIFETIME_MS, CACHE_VERSION, get, isFresh, put, remove };
 });

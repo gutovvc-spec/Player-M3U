@@ -1,8 +1,8 @@
 version: 1.0.9
 files:
   - url: Player-M3U.exe
-    sha512: semO5YH3cGH5I+FwYt5NfHetesSueZsc6LXRZauAavhcyqX+qw103MZYlHhytB68G7DqFXi79cnvdBrFKxpY7w==
-    size: 100559089
+    sha512: 6nBr4lzMwh7cMb4xd4pH8e4qmBn4v2n0RX2ZKdvrCRx9PTEuAmO4JjE9sdND/4PfSEsjyIGQCHNZM5gc3XMONQ==
+    size: 100561250
 path: Player-M3U.exe
-sha512: semO5YH3cGH5I+FwYt5NfHetesSueZsc6LXRZauAavhcyqX+qw103MZYlHhytB68G7DqFXi79cnvdBrFKxpY7w==
-releaseDate: '2026-10-10T17:30:38.445Z'
+sha512: 6nBr4lzMwh7cMb4xd4pH8e4qmBn4v2n0RX2ZKdvrCRx9PTEuAmO4JjE9sdND/4PfSEsjyIGQCHNZM5gc3XMONQ==
+releaseDate: '2026-10-10T18:39:54.736Z'

@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, net, session } = require("electron");
 const path = require("node:path");
+const Playlist = require("./playlist");
 
 function configurePlaylistLoading() {
   session.defaultSession.webRequest.onHeadersReceived(
@@ -70,7 +71,7 @@ function configurePlaylistLoading() {
 
     if (!response.ok) throw new Error(`O servidor retornou o erro HTTP ${response.status}. Confira o link e o acesso à playlist.`);
 
-    return response.text();
+    return Playlist.decodeText(await response.arrayBuffer(), response.headers.get("content-type") || "");
   });
 }
 
