@@ -145,5 +145,20 @@
     return url.href;
   }
 
-  return { parse, parseAsync, validateUrl };
+  function streamFormat(value) {
+    let url;
+    try {
+      url = new URL(String(value));
+    } catch {
+      return "unknown";
+    }
+    const extension = url.pathname.match(/\.([a-z\d]+)$/i)?.[1]?.toLowerCase();
+    const hints = ["type", "format", "output", "extension", "container", "ext"]
+      .map((name) => (url.searchParams.get(name) || "").toLowerCase().replace(/[^a-z\d]/g, ""));
+    if (extension === "m3u8" || extension === "m3u" || hints.some((hint) => ["m3u8", "m3u", "hls"].includes(hint))) return "hls";
+    if (["ts", "mpegts", "mpeg"].includes(extension) || hints.some((hint) => ["ts", "mpegts", "mpeg"].includes(hint))) return "mpegts";
+    return "unknown";
+  }
+
+  return { parse, parseAsync, streamFormat, validateUrl };
 });

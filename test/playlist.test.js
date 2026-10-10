@@ -113,6 +113,41 @@ test("accepts only valid HTTP playlist URLs", () => {
   assert.throws(() => validateUrl("não é um link"), /Informe um endereço válido iniciado por http:\/\//);
 });
 
+test("detects MPEG-TS and HLS formats in IPTV query URLs and proxy URLs", () => {
+  const { streamFormat } = require("../playlist");
+
+  assert.equal(streamFormat("http://iptv.example.com/get.php?username=user&output=ts"), "mpegts");
+  assert.equal(streamFormat("http://iptv.example.com/get.php?type=mpegts"), "mpegts");
+  assert.equal(streamFormat("http://iptv.example.com/get.php?output=m3u8"), "hls");
+  assert.equal(streamFormat("https://player.example.com/api/proxy?token=encrypted&ext=.m3u8"), "hls");
+  assert.equal(streamFormat("https://player.example.com/api/proxy?token=encrypted&ext=.ts"), "mpegts");
+  assert.equal(streamFormat("https://iptv.example.com/video/movie.mp4"), "unknown");
+});
+
+test("preserves stream format hints when IPTV URLs contain multiple output parameters", () => {
+  const { proxiedTarget } = require("../api/proxy-utils");
+  const secret = "12".repeat(32);
+  const hlsProxy = new URL(
+    proxiedTarget(
+      "http://iptv.example.com/get.php?username=user&type=m3u_plus&output=m3u8",
+      "http://iptv.example.com/list.m3u",
+      secret
+    ),
+    "https://player.example.com"
+  );
+  const tsProxy = new URL(
+    proxiedTarget(
+      "http://iptv.example.com/get.php?username=user&type=m3u_plus&output=ts",
+      "http://iptv.example.com/list.m3u",
+      secret
+    ),
+    "https://player.example.com"
+  );
+
+  assert.equal(hlsProxy.searchParams.get("ext"), ".m3u8");
+  assert.equal(tsProxy.searchParams.get("ext"), ".ts");
+});
+
 test("PWA manifest and app-shell resources are packaged", () => {
   const root = path.join(__dirname, "..");
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.webmanifest"), "utf8"));
@@ -123,6 +158,7 @@ test("PWA manifest and app-shell resources are packaged", () => {
     "index.html",
     "styles.css",
     "playlist.js",
+    "service-worker.js",
     "subtitles.js",
     "renderer.js",
     "manifest.webmanifest",
@@ -136,6 +172,7 @@ test("PWA manifest and app-shell resources are packaged", () => {
     assert.ok(fs.existsSync(path.join(root, asset)), `Missing PWA asset: ${asset}`);
   }
   assert.match(serviceWorker, /APP_SHELL_URLS\.has\(url\.href\)/);
+  assert.match(serviceWorker, /player-m3u-shell-v2/);
   assert.match(packageConfig.build.files.join("\n"), /service-worker\.js/);
   assert.match(packageConfig.build.files.join("\n"), /subtitles\.js/);
   assert.match(packageConfig.build.files.join("\n"), /icons\/\*\*/);
@@ -148,6 +185,7 @@ test("PWA manifest and app-shell resources are packaged", () => {
   assert.equal(installerConfig.createStartMenuShortcut, true);
   assert.equal(installerConfig.installerIcon, "icon.ico");
   assert.equal(installerConfig.uninstallerIcon, "icon.ico");
+  assert.equal(packageConfig.version, "1.0.9");
 });
 
 test("cleans HTML formatting from subtitle cues without losing the caption", () => {
@@ -183,16 +221,16 @@ test("proxy rewrites playlist media, logos, and HLS references without exposing 
   const lines = rewritten.split("\n");
   const allowedHosts = parseAllowedHosts("iptv.example.com, cdn.example.com");
   const proxiedMedia = new URL(parsed[0].url, "https://player.example.com");
-  const mediaToken = proxiedMedia.pathname.split("/").pop().replace(/\.mp4$/, "");
+  const mediaToken = proxiedMedia.searchParams.get("token");
 
   assert.match(lines[1], /tvg-id="proxy-[\da-f]{32}"/);
-  assert.match(lines[1], /tvg-logo="\/api\/proxy\/[^"]+\.png"/);
+  assert.match(lines[1], /tvg-logo="\/api\/proxy\?token=[^"]+&ext=\.png"/);
   assert.equal(parsed[0].category, "movies");
   assert.doesNotMatch(rewritten, /user=secret/);
   assert.equal(decodeTarget(mediaToken, secret).href, "http://cdn.example.com/video/movie.mp4?user=secret");
-  assert.match(parsed[1].url, /\.m3u8$/);
+  assert.match(parsed[1].url, /[?&]ext=\.m3u8$/);
   assert.equal(
-    decodeTarget(new URL(parsed[1].url, "https://player.example.com").pathname.split("/").pop().replace(/\.m3u8$/, ""), secret).href,
+    decodeTarget(new URL(parsed[1].url, "https://player.example.com").searchParams.get("token"), secret).href,
     "http://iptv.example.com/live/channel.m3u8"
   );
   assert.equal(validateTarget("http://cdn.example.com/video.mp4", allowedHosts).hostname, "cdn.example.com");
@@ -215,7 +253,7 @@ test("proxy preserves stable item IDs and rewrites HLS resources", () => {
   const output = rewritePlaylist(source, baseUrl, secret, "/api/proxy/", false);
   const keyUri = output.match(/URI="([^"]+)"/)[1];
   const playlistUrl = output.split("\n").at(-1);
-  const tokenFor = (value) => new URL(value, "https://player.example.com").pathname.split("/").pop().replace(/\.[a-z\d]{1,8}$/i, "");
+  const tokenFor = (value) => new URL(value, "https://player.example.com").searchParams.get("token");
 
   assert.equal(decodeTarget(tokenFor(keyUri), secret).href, "https://iptv.example.com/live/keys/key.bin");
   assert.equal(decodeTarget(tokenFor(playlistUrl), secret).href, "https://iptv.example.com/live/media/episode.m3u8");
@@ -226,7 +264,7 @@ test("proxy preserves stable item IDs and rewrites HLS resources", () => {
     "/api/proxy/",
     false
   );
-  assert.match(segments, /#EXTINF:4\.0,\n\/api\/proxy\//);
+  assert.match(segments, /#EXTINF:4\.0,\n\/api\/proxy\?token=/);
   assert.doesNotMatch(segments, /tvg-id/);
 
   const itemSource = "#EXTM3U\n#EXTINF:-1,Canal\nhttp://iptv.example.com/live/123.ts";
@@ -259,6 +297,6 @@ test("streaming proxy rewrite handles split UTF-8 and M3U lines", async () => {
 
   const rewritten = Buffer.concat(output).toString("utf8");
   assert.match(rewritten, /#EXTINF:-1 tvg-id="proxy-[\da-f]{32}",Canção ao vivo/);
-  assert.match(rewritten, /\/api\/proxy\/[^/]+\.ts/);
+  assert.match(rewritten, /\/api\/proxy\?token=[^\s]+&ext=\.ts/);
   assert.doesNotMatch(rewritten, /�/);
 });

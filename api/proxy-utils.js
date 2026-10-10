@@ -95,7 +95,7 @@ function decodeTarget(token, secret) {
   return new URL(target);
 }
 
-function proxiedTarget(reference, baseUrl, secret, proxyPath = "/api/proxy/") {
+function proxiedTarget(reference, baseUrl, secret, proxyPath = "/api/proxy") {
   let target;
   try {
     target = new URL(reference, baseUrl);
@@ -103,11 +103,17 @@ function proxiedTarget(reference, baseUrl, secret, proxyPath = "/api/proxy/") {
     return reference;
   }
   if (target.protocol !== "http:" && target.protocol !== "https:") return reference;
-  const extension = target.pathname.match(/\.[a-z\d]{1,8}$/i)?.[0]
-    || (/^(?:m3u8?|hls)$/i.test(target.searchParams.get("type") || target.searchParams.get("format") || "")
-      ? `.${(target.searchParams.get("type") || target.searchParams.get("format")).toLowerCase()}`
-      : "");
-  return `${proxyPath}${encodeTarget(target, secret)}${extension}`;
+  const pathExtension = target.pathname.match(/\.[a-z\d]{1,8}$/i)?.[0];
+  const formatHint = ["type", "format", "output", "extension", "container"]
+    .map((name) => (target.searchParams.get(name) || "").toLowerCase().replace(/[^a-z\d]/g, ""))
+    .find((value) => /^(?:m3u8?|hls|ts|mpegts)$/.test(value));
+  const pathIsGenericEndpoint = /^\.(?:php|asp|aspx|cgi|do)$/i.test(pathExtension || "");
+  const effectiveExtension = formatHint && (!pathExtension || pathIsGenericEndpoint)
+    ? `.${formatHint}`
+    : pathExtension || "";
+  const query = new URLSearchParams({ token: encodeTarget(target, secret) });
+  if (effectiveExtension) query.set("ext", effectiveExtension);
+  return `${proxyPath.replace(/\/+$/, "")}?${query}`;
 }
 
 function rewritePlaylistLine(line, baseUrl, secret, proxyPath) {
@@ -225,6 +231,7 @@ module.exports = {
   encodeTarget,
   isPublicIPv4,
   parseAllowedHosts,
+  proxiedTarget,
   rewritePlaylist,
   rewritePlaylistLines,
   validateTarget

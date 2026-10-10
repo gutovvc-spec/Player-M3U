@@ -1,4 +1,4 @@
-const CACHE_NAME = "player-m3u-shell-v1";
+const CACHE_NAME = "player-m3u-shell-v2";
 const APP_SHELL = [
   "./",
   "./index.html",

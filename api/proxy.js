@@ -169,7 +169,7 @@ function handleUpstreamResponse(response, upstream, request, secret, expectPlayl
       delete headers["accept-ranges"];
       headers["Content-Type"] = "application/vnd.apple.mpegurl; charset=utf-8";
       response.writeHead(source.statusCode || 200, headers);
-      const transformer = createPlaylistRewriteStream(target, secret, "/api/proxy/", expectPlaylist);
+      const transformer = createPlaylistRewriteStream(target, secret, "/api/proxy", expectPlaylist);
       transformer.on("error", (error) => {
         console.error("Falha ao reescrever uma playlist IPTV.", error);
         response.destroy();
@@ -230,7 +230,9 @@ async function handler(request, response) {
       const body = await readJsonBody(request);
       target = validateTarget(body.url, allowedHosts);
     } else {
-      const tokenWithExtension = new URL(request.url, "https://player.invalid").pathname.split("/").filter(Boolean).pop();
+      const requestUrl = new URL(request.url, "https://player.invalid");
+      const pathToken = requestUrl.pathname.split("/").filter(Boolean).pop();
+      const tokenWithExtension = requestUrl.searchParams.get("token") || (pathToken === "proxy" ? "" : pathToken);
       if (!tokenWithExtension || tokenWithExtension === "proxy") {
         sendError(response, 400, "Informe a playlist pelo formulário do aplicativo.");
         return;

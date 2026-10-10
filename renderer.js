@@ -623,8 +623,9 @@ function playItem(item) {
   elements.playerModal.showModal();
 
   const url = mediaPlaybackUrl(item.url);
-  const isHls = /\.m3u8(?:$|[?#])/i.test(url) || /[?&](?:type|format)=m3u8(?:&|$)/i.test(url);
-  const isMpegTs = /\.(?:ts|mpegts)(?:$|[?#])/i.test(url) || /[?&](?:type|format)=ts(?:&|$)/i.test(url);
+  const streamFormat = Playlist.streamFormat(url);
+  const isHls = streamFormat === "hls";
+  const isMpegTs = streamFormat === "mpegts";
   if (isHls && window.Hls?.isSupported()) {
     state.hls = new window.Hls();
     if (item.category === "live") {
@@ -646,7 +647,7 @@ function playItem(item) {
       }
     });
   } else if (
-    (isMpegTs || (item.category === "live" && !isHls && !/\.(?:mp4|m4v|mkv|webm|mp3|aac|ogg)(?:$|[?#])/i.test(url)))
+    (isMpegTs || (item.category === "live" && !isHls && streamFormat === "unknown" && !/\.(?:mp4|m4v|mkv|webm|mp3|aac|ogg)(?:$|[?#])/i.test(url)))
     && window.mpegts?.isSupported()
   ) {
     state.mpegts = window.mpegts.createPlayer({
@@ -668,7 +669,7 @@ function playItem(item) {
       }
     });
     state.mpegts.load();
-  } else if (elements.video.canPlayType("application/vnd.apple.mpegurl") || (!isHls && !isMpegTs)) {
+  } else if (elements.video.canPlayType("application/vnd.apple.mpegurl") || (!isHls && !isMpegTs && item.category !== "live")) {
     elements.video.src = url;
   } else {
     showVideoError("Este dispositivo não oferece suporte ao formato desta transmissão.");

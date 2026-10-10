@@ -1,6 +1,6 @@
 {
   "name": "player-m3u-iptv",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Player de playlists M3U para filmes, séries e TV ao vivo.",
   "main": "main.js",
   "author": "Player M3U",
